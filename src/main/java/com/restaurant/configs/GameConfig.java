@@ -11,10 +11,12 @@ public class GameConfig {
     public static final int NUM_WAITERS = 2;
     public static final int NUM_CHEFS = 3;
 
-    public static final Point2D ENTRANCE_POSITION = new Point2D(50, 360);
-    public static final Point2D RECEPTIONIST_POSITION = new Point2D(150, 360);
-    public static final Point2D KITCHEN_POSITION = new Point2D(1000, 50);  // Cocina arriba a la derecha
+    public static final Point2D ENTRANCE_POSITION = new Point2D(50, 650);
+    public static final Point2D RECEPTIONIST_POSITION = new Point2D(50, 550);
+    public static final Point2D KITCHEN_POSITION = new Point2D(850, 30);
     public static final Point2D WAITER_REST_POSITION = new Point2D(800, 100);
+    public static final Point2D QUEUE_BASE_POSITION = new Point2D(150, 550);
+    public static final double QUEUE_SPACING = 40;
 
     private static final Map<Integer, Point2D> TABLE_POSITIONS = new HashMap<>();
     static {
@@ -47,19 +49,23 @@ public class GameConfig {
         TABLE_POSITIONS.put(19, new Point2D(700, 550));
     }
 
+    private static final Map<Integer, Point2D> CHEF_POSITIONS = new HashMap<>();
+    static {
+        CHEF_POSITIONS.put(0, new Point2D(1000, 120));
+        CHEF_POSITIONS.put(1, new Point2D(1080, 120));
+        CHEF_POSITIONS.put(2, new Point2D(1160, 120));
+    }
+
     public static Point2D getTablePosition(int tableId) {
         return TABLE_POSITIONS.get(tableId);
     }
 
-    private static final Map<Integer, Point2D> CHEF_POSITIONS = new HashMap<>();
-    static {
-        CHEF_POSITIONS.put(0, new Point2D(1000, 120));  // Primer cocinero
-        CHEF_POSITIONS.put(1, new Point2D(1080, 120));  // Segundo cocinero
-        CHEF_POSITIONS.put(2, new Point2D(1160, 120));  // Tercer cocinero
-    }
-
     public static Point2D getChefPosition(int chefId) {
         return CHEF_POSITIONS.get(chefId);
+    }
+
+    public static Point2D getQueuePosition(int position) {
+        return QUEUE_BASE_POSITION.add(position * QUEUE_SPACING, 0);
     }
 
     public static final double COOKING_TIME = 5.0;

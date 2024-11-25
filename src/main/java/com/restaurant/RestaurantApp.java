@@ -3,14 +3,16 @@ package com.restaurant;
 import com.almasb.fxgl.app.GameApplication;
 import com.almasb.fxgl.app.GameSettings;
 import com.almasb.fxgl.dsl.FXGL;
+import com.almasb.fxgl.entity.Entity;
 import com.almasb.fxgl.entity.SpawnData;
 import com.restaurant.configs.GameConfig;
 import com.restaurant.factories.RestaurantEntityFactory;
 import com.restaurant.monitors.RestaurantMonitor;
 import com.restaurant.monitors.KitchenMonitor;
+import com.restaurant.components.CustomerComponent;
 import com.restaurant.utils.PoissonDistribution;
 import javafx.application.Platform;
-import javafx.scene.paint.Color;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -35,14 +37,17 @@ public class RestaurantApp extends GameApplication {
         FXGL.getGameWorld().addEntityFactory(new RestaurantEntityFactory());
         restaurantMonitor = new RestaurantMonitor(GameConfig.NUM_TABLES, GameConfig.NUM_WAITERS);
         kitchenMonitor = new KitchenMonitor(GameConfig.NUM_CHEFS);
-        customerArrivalDistribution = new PoissonDistribution(1.0); // Lambda = 1 cliente por minuto en promedio
+        customerArrivalDistribution = new PoissonDistribution(1.0);
 
-        // Spawn elementos estáticos
+        spawnInitialEntities();
+        startCustomerGeneration();
+    }
+
+    private void spawnInitialEntities() {
         FXGL.spawn("background");
         FXGL.spawn("kitchen");
         FXGL.spawn("receptionist");
 
-        // Spawn chefs y meseros
         for (int i = 0; i < GameConfig.NUM_CHEFS; i++) {
             FXGL.spawn("chef", new SpawnData().put("id", i));
         }
@@ -54,9 +59,6 @@ public class RestaurantApp extends GameApplication {
         for (int i = 0; i < GameConfig.NUM_TABLES; i++) {
             FXGL.spawn("table", new SpawnData().put("id", i));
         }
-
-        // Iniciar generación de clientes
-        startCustomerGeneration();
     }
 
     private void startCustomerGeneration() {
@@ -64,8 +66,22 @@ public class RestaurantApp extends GameApplication {
         executorService.scheduleAtFixedRate(() -> {
             if (customerArrivalDistribution.nextInt() > 0) {
                 Platform.runLater(() -> {
-                    FXGL.spawn("customer");
-                    customerCount++;
+                    Entity customerEntity = FXGL.spawn("customer", new SpawnData().put("id", customerCount++));
+                    CustomerComponent customerComponent = customerEntity.getComponent(CustomerComponent.class);
+
+                    // Iniciar el proceso de asignación de mesa en un hilo separado
+                    new Thread(() -> {
+                        try {
+                            restaurantMonitor.customerArrives(customerComponent.getCustomer());
+                            // Cuando se asigna una mesa, actualizar la posición del cliente
+                            Platform.runLater(() -> {
+                                int tableId = customerComponent.getCustomer().getTable().getId();
+                                customerComponent.setTablePosition(GameConfig.getTablePosition(tableId));
+                            });
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }).start();
                 });
             }
         }, 0, 1, TimeUnit.SECONDS);

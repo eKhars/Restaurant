@@ -2,6 +2,8 @@ package com.restaurant.monitors;
 
 import com.restaurant.domain.*;
 import java.util.List;
+import java.util.Queue;
+import java.util.LinkedList;
 import java.util.ArrayList;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -10,6 +12,7 @@ public class RestaurantMonitor {
     private final List<Table> tables;
     private final List<Waiter> waiters;
     private final Receptionist receptionist;
+    private final Queue<Customer> waitingCustomers;
     private final ReentrantLock lock;
     private final Condition tableAvailable;
     private final Condition receptionistAvailable;
@@ -19,6 +22,7 @@ public class RestaurantMonitor {
         this.tables = new ArrayList<>();
         this.waiters = new ArrayList<>();
         this.receptionist = new Receptionist();
+        this.waitingCustomers = new LinkedList<>();
         this.lock = new ReentrantLock();
         this.tableAvailable = lock.newCondition();
         this.receptionistAvailable = lock.newCondition();
@@ -46,28 +50,25 @@ public class RestaurantMonitor {
             while (receptionist.isBusy()) {
                 receptionistAvailable.await();
             }
-            handleCustomerArrival(customer);
+            receptionist.attend(customer);
+
+            if (!isTableAvailable()) {
+                customer.setState(Customer.CustomerState.WAITING_FOR_TABLE);
+                waitingCustomers.offer(customer);
+                receptionist.release();
+                receptionistAvailable.signal();
+
+                while (customer.getState() == Customer.CustomerState.WAITING_FOR_TABLE) {
+                    tableAvailable.await();
+                }
+            } else {
+                assignTableToCustomer(customer);
+                receptionist.release();
+                receptionistAvailable.signal();
+            }
         } finally {
             lock.unlock();
         }
-    }
-
-    private void handleCustomerArrival(Customer customer) throws InterruptedException {
-        receptionist.attend(customer);
-
-        while (!isTableAvailable()) {
-            tableAvailable.await();
-        }
-
-        Table table = getAvailableTable();
-        if (table != null) {
-            table.occupy(customer);
-            customer.setTable(table);
-            customer.setState(Customer.CustomerState.WAITING_FOR_WAITER);
-        }
-
-        receptionist.release();
-        receptionistAvailable.signal();
     }
 
     public void requestWaiter(Customer customer) throws InterruptedException {
@@ -96,10 +97,24 @@ public class RestaurantMonitor {
             Table table = customer.getTable();
             if (table != null) {
                 table.release();
-                tableAvailable.signal();
+
+                if (!waitingCustomers.isEmpty()) {
+                    Customer waitingCustomer = waitingCustomers.poll();
+                    assignTableToCustomer(waitingCustomer);
+                }
+                tableAvailable.signalAll();
             }
         } finally {
             lock.unlock();
+        }
+    }
+
+    private void assignTableToCustomer(Customer customer) {
+        Table table = getAvailableTable();
+        if (table != null) {
+            table.occupy(customer);
+            customer.setTable(table);
+            customer.setState(Customer.CustomerState.WAITING_FOR_WAITER);
         }
     }
 
@@ -123,5 +138,25 @@ public class RestaurantMonitor {
                 .filter(Waiter::isAvailable)
                 .findFirst()
                 .orElse(null);
+    }
+
+    public int getQueueSize() {
+        lock.lock();
+        try {
+            return waitingCustomers.size();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void releaseWaiter(Waiter waiter) {
+        lock.lock();
+        try {
+            waiter.setState(Waiter.WaiterState.IDLE);
+            waiter.setCurrentCustomer(null);
+            waiterAvailable.signal();
+        } finally {
+            lock.unlock();
+        }
     }
 }

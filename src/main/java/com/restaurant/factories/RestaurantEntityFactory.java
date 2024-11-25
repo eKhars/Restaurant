@@ -89,9 +89,9 @@ public class RestaurantEntityFactory implements EntityFactory {
 
     @Spawns("kitchen")
     public Entity spawnKitchen(SpawnData data) {
-        Texture texture = FXGL.texture("cocina.png");
-        texture.setFitWidth(200);  // Ajusta este valor según necesites
-        texture.setFitHeight(150); // Ajusta este valor según necesites
+        Texture texture = FXGL.texture("cocina2.png");
+        texture.setFitWidth(400);  // Ajusta este valor según necesites
+        texture.setFitHeight(200); // Ajusta este valor según necesites
 
         return FXGL.entityBuilder(data)
                 .at(GameConfig.KITCHEN_POSITION)
@@ -101,9 +101,13 @@ public class RestaurantEntityFactory implements EntityFactory {
 
     @Spawns("receptionist")
     public Entity spawnReceptionist(SpawnData data) {
+        Texture texture = FXGL.texture("recepcionista.png");
+        texture.setFitWidth(120);
+        texture.setFitHeight(120);
+
         return FXGL.entityBuilder(data)
                 .at(GameConfig.RECEPTIONIST_POSITION)
-                .view("recepcionista.png")
+                .view(texture)
                 .build();
     }
 }

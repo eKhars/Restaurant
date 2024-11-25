@@ -7,5 +7,6 @@ public enum EntityType {
     BACKGROUND,
     KITCHEN,
     RECEPTIONIST,
-    TABLE
+    TABLE,
+    ORDER
 }
